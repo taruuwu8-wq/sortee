@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>K-pop Song Sorter</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+  /* Layout: a photocard battle. Two album-art cards face off, a slim player rail sits under them. */
+  :root {
+    --bg: #f1f0f5;
+    --surface: #ffffff;
+    --ink: #15141c;
+    --muted: #666377;
+    --line: #dddbe6;
+    --accent: #2b45f5;
+    --accent-ink: #ffffff;
+    --accent-soft: #e4e7ff;
+    --scrim: rgba(12, 11, 18, .58);
+    --font-display: "Unbounded", "IBM Plex Sans Thai", system-ui, sans-serif;
+    --font-body: "IBM Plex Sans Thai", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0e0d14; --surface: #191822; --ink: #efeef6; --muted: #9b98ad; --line: #2b2938;
+      --accent: #8191ff; --accent-ink: #0e0d14; --accent-soft: #23264a; --scrim: rgba(0, 0, 0, .62);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0e0d14; --surface: #191822; --ink: #efeef6; --muted: #9b98ad; --line: #2b2938;
+    --accent: #8191ff; --accent-ink: #0e0d14; --accent-soft: #23264a; --scrim: rgba(0, 0, 0, .62);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 780px; margin: 0 auto; padding-block: 28px 64px; display: grid; gap: 22px; }
+  [hidden] { display: none !important; }
+
+  header.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 8px 16px; }
+  .wordmark { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.5rem, 5vw, 2.1rem); letter-spacing: -.02em; line-height: 1; margin: 0; }
+  .wordmark span { color: var(--accent); }
+  .tag { color: var(--muted); margin: 6px 0 0; font-size: .95rem; }
+  .eyebrow { font-family: var(--font-mono); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+  .panel h2 { font-family: var(--font-display); font-weight: 700; font-size: 1rem; margin: 0 0 4px; text-wrap: balance; }
+  .note { color: var(--muted); font-size: .86rem; margin: 0; }
+
+  button, .btn {
+    font: inherit; font-weight: 500; border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+    padding: 10px 16px; border-radius: 999px; cursor: pointer; min-height: 44px;
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none;
+  }
+  button:hover, .btn:hover { border-color: var(--accent); }
+  button:focus-visible, .btn:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .small { min-height: 36px; padding: 6px 14px; font-size: .86rem; }
+  input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); flex: none; margin: 0; }
+
+  /* ---- selection tree ---- */
+  .tree { margin-top: 12px; border-top: 1px solid var(--line); }
+  details summary { display: flex; align-items: center; gap: 10px; cursor: pointer; list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::after { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); margin: 0 6px 4px; transition: transform .15s; }
+  details[open] > summary::after { transform: rotate(225deg); margin-bottom: -2px; }
+  .nm { flex: 1; min-width: 0; }
+  .count { font-family: var(--font-mono); color: var(--muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+  details.grp { border-bottom: 1px solid var(--line); }
+  details.grp > summary { padding: 14px 2px; }
+  details.grp > summary .nm { font-family: var(--font-display); font-weight: 700; font-size: 1rem; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex: none; background: hsl(var(--h) 75% 58%); }
+  .albs { padding: 0 0 8px 28px; }
+  details.alb > summary { padding: 8px 2px; font-weight: 600; font-size: .95rem; }
+  .songs { padding: 0 2px 8px 28px; display: grid; gap: 0; }
+  .songs label { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: .92rem; cursor: pointer; }
+  .total { font-family: var(--font-mono); font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* ---- battle ---- */
+  .meter { display: grid; gap: 8px; }
+  .meter-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .round { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; }
+  .pct { font-family: var(--font-mono); color: var(--muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+  .track { height: 6px; background: var(--line); border-radius: 99px; overflow: hidden; }
+  .track > div { height: 100%; width: 0; background: var(--accent); transition: width .25s; }
+
+  .duel { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .vs {
+    position: absolute; left: 50%; top: calc(50% - 30px); transform: translate(-50%, -50%); z-index: 3;
+    width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--ink); color: var(--bg); font-family: var(--font-display); font-weight: 800; font-size: .8rem;
+    border: 4px solid var(--bg); pointer-events: none;
+  }
+  .card { position: relative; min-width: 0; }
+  .pick {
+    width: 100%; display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; text-align: left;
+    border-radius: 18px; overflow: hidden; background: var(--surface); border: 1px solid var(--line);
+    transition: transform .14s ease, box-shadow .14s ease, border-color .14s;
+  }
+  .pick:hover { transform: translateY(-3px); box-shadow: 0 10px 28px -12px var(--scrim); border-color: var(--accent); }
+  .pick:active { transform: scale(.985); }
+  .art { position: relative; aspect-ratio: 1 / 1; max-width: 100%; overflow: hidden; background: hsl(var(--h) 55% 45%); }
+  .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
+  .art img.on { opacity: 1; }
+  .art .ph {
+    position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 14px;
+    background:
+      radial-gradient(120% 90% at 100% 0%, hsl(calc(var(--h) + 40) 80% 70% / .85), transparent 60%),
+      linear-gradient(160deg, hsl(var(--h) 70% 55%), hsl(calc(var(--h) - 30) 60% 30%));
+    color: #fff;
+  }
+  .art .ph b { font-family: var(--font-display); font-weight: 800; font-size: clamp(.95rem, 3.6vw, 1.35rem); line-height: 1.1; overflow-wrap: anywhere; text-wrap: balance; }
+  .art .ph small { font-family: var(--font-mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .85; margin-top: 6px; }
+  .art::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .2s;
+    background: linear-gradient(115deg, transparent 30%, rgba(255,255,255,.28) 45%, rgba(190,220,255,.18) 52%, transparent 66%);
+  }
+  .pick:hover .art::after { opacity: 1; }
+  .info { padding: 12px 14px 14px; display: grid; gap: 4px; }
+  .info .t { font-weight: 600; font-size: 1.02rem; line-height: 1.3; overflow-wrap: anywhere; }
+  .info .a { color: var(--muted); font-size: .8rem; overflow-wrap: anywhere; }
+  .play {
+    position: absolute; right: 10px; top: 10px; z-index: 2; width: 46px; height: 46px; min-height: 0; padding: 0;
+    border-radius: 50%; border: none; background: var(--scrim); color: #fff; backdrop-filter: blur(6px);
+  }
+  .play:hover { background: var(--accent); color: var(--accent-ink); }
+  .play.busy { opacity: .7; }
+  .play svg { width: 18px; height: 18px; }
+  .card.playing .pick { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+  .rail {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 16px 6px 6px;
+  }
+  .rail .mute { width: 40px; height: 40px; min-height: 0; padding: 0; border-radius: 50%; }
+  .rail .mute svg { width: 18px; height: 18px; }
+  .rail input[type=range] { flex: 1 1 140px; min-width: 0; accent-color: var(--accent); }
+  .rail .vol { font-family: var(--font-mono); font-size: .8rem; color: var(--muted); width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+  .status { flex-basis: 100%; font-size: .8rem; color: var(--muted); padding: 0 6px 4px 10px; min-height: 1.2em; overflow-wrap: anywhere; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+  .hint { text-align: center; color: var(--muted); font-size: .78rem; margin: 0; }
+  .yt { color: var(--accent); font-size: .78rem; }
+
+  /* ---- results ---- */
+  .podium { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+  .pod { display: grid; gap: 8px; min-width: 0; }
+  .pod .art { border-radius: 14px; }
+  .pod .rk { font-family: var(--font-display); font-weight: 800; font-size: 1.6rem; line-height: 1; color: var(--accent); }
+  .pod .t { font-weight: 600; font-size: .92rem; line-height: 1.3; overflow-wrap: anywhere; }
+  .pod .a { color: var(--muted); font-size: .76rem; overflow-wrap: anywhere; }
+  .pod.first .rk { font-size: 2.1rem; }
+  ol.rank { list-style: none; margin: 0; padding: 0; }
+  ol.rank li { display: grid; grid-template-columns: 2.6em 44px minmax(0, 1fr); gap: 12px; align-items: center; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  ol.rank li:last-child { border-bottom: none; }
+  ol.rank .n { font-family: var(--font-mono); text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }
+  ol.rank .art { border-radius: 8px; }
+  ol.rank .art .ph { padding: 6px; }
+  ol.rank .art .ph b { font-size: .55rem; }
+  ol.rank .art .ph small { display: none; }
+  ol.rank .t { font-weight: 500; overflow-wrap: anywhere; line-height: 1.3; }
+  ol.rank .a { color: var(--muted); font-size: .78rem; overflow-wrap: anywhere; }
+  textarea { width: 100%; min-height: 150px; font: inherit; font-size: .88rem; padding: 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); resize: vertical; }
+
+  @media (max-width: 480px) {
+    .duel { gap: 10px; }
+    .info { padding: 10px 10px 12px; }
+    .info .t { font-size: .93rem; }
+    .play { width: 40px; height: 40px; right: 8px; top: 8px; }
+    .albs { padding-left: 14px; }
+    .songs { padding-left: 18px; }
+    .podium { gap: 8px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; }
+  }
+</style>
+
+</head>
+<body>
+<main>
+  <header class="top">
+    <div>
+      <p class="eyebrow">K-pop · song ranking</p>
+      <h1 class="wordmark">SONG<span>/</span>SORTER</h1>
+      <p class="tag">เลือกเพลงที่ชอบกว่าไปเรื่อย ๆ จนได้อันดับเพลงของคุณ</p>
+    </div>
+  </header>
+
+  <!-- Start -->
+  <section id="start" class="panel">
+    <h2>เลือกเพลงที่อยากให้รวม</h2>
+    <p class="note">เริ่มต้นเลือก aespa ไว้ให้ ติ๊กหลายวงได้ถ้าอยากให้เพลงต่างวงแข่งกัน กดชื่อวงหรืออัลบั้มเพื่อขยายแล้วเลือกทีละเพลง</p>
+    <div class="tree" id="tree"></div>
+    <div class="row" style="margin-top:14px">
+      <button class="small" id="allBtn">เลือกทั้งหมด</button>
+      <button class="small" id="noneBtn">ล้างทั้งหมด</button>
+      <span class="total" id="totalNote"></span>
+    </div>
+    <div class="row" style="margin-top:18px">
+      <button class="primary" id="startBtn">เริ่มจัดอันดับ</button>
+      <button id="resumeBtn" hidden>ทำต่อจากที่ค้างไว้</button>
+    </div>
+  </section>
+
+  <!-- Sorting -->
+  <section id="sorting" hidden style="display:grid; gap:16px">
+    <div class="meter">
+      <div class="meter-top"><span class="round" id="pcount"></span><span class="pct" id="ppct"></span></div>
+      <div class="track"><div id="bar"></div></div>
+    </div>
+
+    <div class="duel">
+      <div class="card" id="cardL">
+        <button class="pick" id="left" aria-label="เลือกเพลงซ้าย">
+          <div class="art" id="artL"><div class="ph"><b></b><small></small></div><img alt=""></div>
+          <div class="info"><span class="t" id="lt"></span><span class="a" id="la"></span></div>
+        </button>
+        <button class="play" id="lp" aria-label="ฟังตัวอย่างเพลงซ้าย"></button>
+      </div>
+      <div class="vs">VS</div>
+      <div class="card" id="cardR">
+        <button class="pick" id="right" aria-label="เลือกเพลงขวา">
+          <div class="art" id="artR"><div class="ph"><b></b><small></small></div><img alt=""></div>
+          <div class="info"><span class="t" id="rt"></span><span class="a" id="ra"></span></div>
+        </button>
+        <button class="play" id="rp" aria-label="ฟังตัวอย่างเพลงขวา"></button>
+      </div>
+    </div>
+
+    <div class="rail">
+      <button class="mute" id="muteBtn" aria-label="ปิดเสียง"></button>
+      <input type="range" id="volume" min="0" max="100" step="1" value="70" aria-label="ระดับเสียง">
+      <span class="vol" id="volText">70%</span>
+      <div class="status" id="status">กด ▶ บนปกเพื่อฟังตัวอย่าง 30 วินาที</div>
+    </div>
+
+    <div class="actions">
+      <button id="tie">ชอบพอ ๆ กัน</button>
+      <button id="undo">ย้อนกลับ</button>
+      <button id="saveBtn">บันทึกไว้ก่อน</button>
+      <button id="quit">เริ่มใหม่</button>
+    </div>
+    <p class="hint">คีย์ลัด: ← ซ้าย · → ขวา · ↑ ชอบพอ ๆ กัน · ↓ ย้อนกลับ · <a class="yt" id="ly" target="_blank" rel="noopener noreferrer">YouTube ซ้าย</a> · <a class="yt" id="ry" target="_blank" rel="noopener noreferrer">YouTube ขวา</a></p>
+  </section>
+
+  <!-- Result -->
+  <section id="result" hidden style="display:grid; gap:16px">
+    <div class="panel">
+      <p class="eyebrow">ผลลัพธ์</p>
+      <h2 style="font-size:1.3rem; margin-bottom:16px">อันดับเพลงของคุณ</h2>
+      <div class="podium" id="podium"></div>
+    </div>
+    <div class="panel">
+      <ol class="rank" id="rankList"></ol>
+    </div>
+    <div class="panel">
+      <h2>คัดลอกเป็นข้อความ</h2>
+      <textarea id="txt" readonly></textarea>
+      <div class="row" style="margin-top:12px">
+        <button class="primary" id="copyBtn">คัดลอก</button>
+        <button id="again">จัดอันดับใหม่</button>
+      </div>
+      <p class="note" id="copyNote" style="margin-top:8px">อยากได้เป็นรูป แคปหน้าจอส่วนอันดับได้เลย</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Song data (groups > albums > songs) ----------
+  var GROUPS = [
+ {
+  "key": "aespa",
+  "name": "aespa",
+  "albums": [
+   {
+    "key": "singles",
+    "name": "ซิงเกิลก่อนมีอัลบั้ม",
+    "songs": [
+     "Black Mamba",
+     "Forever (약속)",
+     "Next Level",
+     "Dreams Come True",
+     "Better Things",
+     "Regret of the Times (시대유감)"
+    ]
+   },
+   {
+    "key": "savage",
+    "name": "Savage (2021)",
+    "songs": [
+     "Aenergy",
+     "Savage",
+     "I'll Make You Cry",
+     "Yeppi Yeppi",
+     "Iconic",
+     "Lucid Dream (자각몽)"
+    ]
+   },
+   {
+    "key": "girls",
+    "name": "Girls (2022)",
+    "songs": [
+     "Girls",
+     "Illusion (도깨비불)",
+     "Lingo",
+     "Life's Too Short",
+     "ICU (쉬어가도 돼)"
+    ]
+   },
+   {
+    "key": "myworld",
+    "name": "MY WORLD (2023)",
+    "songs": [
+     "Welcome to MY World (feat. nævis)",
+     "Spicy",
+     "Salty & Sweet",
+     "Thirsty",
+     "I'm Unhappy",
+     "'Til We Meet Again"
+    ]
+   },
+   {
+    "key": "drama",
+    "name": "Drama (2023)",
+    "songs": [
+     "Drama",
+     "Trick or Trick",
+     "Don't Blink",
+     "Hot Air Balloon",
+     "YOLO",
+     "You"
+    ]
+   },
+   {
+    "key": "armageddon",
+    "name": "Armageddon (2024)",
+    "songs": [
+     "Supernova",
+     "Armageddon",
+     "Set the Tone",
+     "Licorice",
+     "Mine",
+     "Bahama",
+     "Long Chat (#♥︎)",
+     "Prologue",
+     "Live My Life",
+     "Melody (목소리)"
+    ]
+   },
+   {
+    "key": "hotmess",
+    "name": "Hot Mess (2024, ญี่ปุ่น)",
+    "songs": [
+     "Hot Mess",
+     "Sun and Moon"
+    ]
+   },
+   {
+    "key": "whiplash",
+    "name": "Whiplash (2024)",
+    "songs": [
+     "Whiplash",
+     "Kill It",
+     "Flights, Not Feelings",
+     "Pink Hoodie",
+     "Flowers",
+     "Just Another Girl"
+    ]
+   },
+   {
+    "key": "dirtywork",
+    "name": "Dirty Work (2025)",
+    "songs": [
+     "Dirty Work",
+     "Dark Arts"
+    ]
+   },
+   {
+    "key": "richman",
+    "name": "Rich Man (2025)",
+    "songs": [
+     "Rich Man",
+     "Drift",
+     "Count on Me",
+     "Angel #48",
+     "To the Girls",
+     "Bubble"
+    ]
+   },
+   {
+    "key": "lemonade",
+    "name": "Lemonade (2026)",
+    "songs": [
+     "WDA (Whole Different Animal) (feat. G-DRAGON)",
+     "Lemonade",
+     "Shakin'",
+     "Can't Help Myself",
+     "Camouflage",
+     "Bite",
+     "Switchblade (feat. Ty Dolla $ign)",
+     "Roll",
+     "My Plan",
+     "'Til We Die"
+    ]
+   },
+   {
+    "key": "kissntell",
+    "name": "KISS N TELL (2026, ญี่ปุ่น)",
+    "songs": [
+     "KISS N TELL",
+     "Orbit Pop",
+     "Fangirl",
+     "Done with Rules",
+     "ATTITUDE",
+     "In Halo"
+    ]
+   },
+   {
+    "key": "synk",
+    "name": "SYNK โซโล่ / ยูนิต",
+    "songs": [
+     "Up (Karina)",
+     "Dopamine (Giselle)",
+     "Bored! (Ningning)",
+     "Spark (Winter)",
+     "Blue (Winter)",
+     "Ketchup and Lemonade (Ningning)",
+     "Tornado (Giselle)",
+     "Good Stuff (Karina)",
+     "Serenade (Karina & Winter)",
+     "Lollipop (Giselle & Ningning)",
+     "16 Bit (Karina)",
+     "Saddle Up (Winter)",
+     "I Love You But I Gotta Let You Go (Ningning)"
+    ]
+   }
+  ]
+ },
+ {
+  "key": "h2h",
+  "name": "Hearts2Hearts",
+  "albums": [
+   {
+    "key": "chase",
+    "name": "The Chase (2025)",
+    "songs": [
+     "The Chase",
+     "Butterflies"
+    ]
+   },
+   {
+    "key": "focus",
+    "name": "Focus (2025)",
+    "songs": [
+     "Focus",
+     "Apple Pie",
+     "Pretty Please",
+     "Flutter",
+     "Blue Moon",
+     "Style"
+    ]
+   },
+   {
+    "key": "lemontang",
+    "name": "Lemon Tang (2026)",
+    "songs": [
+     "Rude!",
+     "Lemon Tang",
+     "15-Love",
+     "Baby Steps (처음투성이)",
+     "Heart Emoji (♡)",
+     "Secret Recipe"
+    ]
+   },
+   {
+    "key": "singles26",
+    "name": "ซิงเกิล (2026)",
+    "songs": [
+     "Iconic Heart",
+     "Moonride"
+    ]
+   }
+  ]
+ },
+ {
+  "key": "lsf",
+  "name": "LE SSERAFIM",
+  "albums": [
+   {
+    "key": "fearless",
+    "name": "Fearless (2022)",
+    "songs": [
+     "The World Is My Oyster",
+     "Fearless",
+     "Blue Flame",
+     "The Great Mermaid",
+     "Sour Grapes"
+    ]
+   },
+   {
+    "key": "antifragile",
+    "name": "Antifragile (2022)",
+    "songs": [
+     "The Hydra",
+     "Antifragile",
+     "Impurities",
+     "No Celestial",
+     "Good Parts (When the Quality Is Bad but I Am)"
+    ]
+   },
+   {
+    "key": "unforgiven",
+    "name": "Unforgiven (2023)",
+    "songs": [
+     "Burn the Bridge",
+     "Unforgiven (feat. Nile Rodgers)",
+     "No-Return (Into the Unknown)",
+     "Eve, Psyche & the Bluebeard's Wife",
+     "Fearnot (Between You, Me and the Lamppost)",
+     "Flash Forward",
+     "Fire in the Belly"
+    ]
+   },
+   {
+    "key": "easy",
+    "name": "Easy (2024)",
+    "songs": [
+     "Easy",
+     "Smart",
+     "Good Bones",
+     "Swan Song",
+     "We Got So Much"
+    ]
+   },
+   {
+    "key": "crazy",
+    "name": "Crazy (2024)",
+    "songs": [
+     "Crazy",
+     "Chasing Lightning",
+     "Pierrot",
+     "1-800-Hot-N-Fun",
+     "Crazier"
+    ]
+   },
+   {
+    "key": "hot",
+    "name": "Hot (2025)",
+    "songs": [
+     "Hot",
+     "Born Fire",
+     "Come Over",
+     "Ash",
+     "So Cynical (Badum)"
+    ]
+   },
+   {
+    "key": "spaghetti",
+    "name": "Spaghetti (2025)",
+    "songs": [
+     "Spaghetti (feat. j-hope)",
+     "Pearlies (My Oyster Is the World)"
+    ]
+   },
+   {
+    "key": "pureflow",
+    "name": "Pureflow Pt. 1 (2026)",
+    "songs": [
+     "Pureflow",
+     "Boompala",
+     "Celebration",
+     "Creatures",
+     "Iffy Iffy",
+     "Need Your Company (우리 어떻게 더 사귈 수 있을까)",
+     "Sonder",
+     "Saki (feat. Aliyah's Interlude)",
+     "Irony",
+     "Trust Exercise",
+     "Liminal Space"
+    ]
+   },
+   {
+    "key": "singles",
+    "name": "ซิงเกิล",
+    "songs": [
+     "Perfect Night",
+     "Different",
+     "Iconic by Mistake (with Illit & Katseye)",
+     "Made My Night"
+    ]
+   }
+  ]
+ },
+ {
+  "key": "bm",
+  "name": "BABYMONSTER",
+  "albums": [
+   {
+    "key": "babymons7er",
+    "name": "BABYMONS7ER (2024)",
+    "songs": [
+     "Monsters (Intro)",
+     "Sheesh",
+     "Like That",
+     "Stuck in the Middle",
+     "Batter Up",
+     "Dream"
+    ]
+   },
+   {
+    "key": "drip",
+    "name": "Drip (2024)",
+    "songs": [
+     "Clik Clak",
+     "Drip",
+     "Love, Maybe",
+     "Really Like You",
+     "Billionaire",
+     "Love in My Heart",
+     "Woke Up in Tokyo (Ruka & Asa)",
+     "Forever"
+    ]
+   },
+   {
+    "key": "wegoup",
+    "name": "We Go Up (2025)",
+    "songs": [
+     "We Go Up",
+     "Psycho",
+     "Supa Dupa Luv",
+     "Wild"
+    ]
+   },
+   {
+    "key": "choom",
+    "name": "Choom (2026)",
+    "songs": [
+     "Moon",
+     "Choom",
+     "I Like It",
+     "Locked In"
+    ]
+   },
+   {
+    "key": "singles",
+    "name": "ซิงเกิล",
+    "songs": [
+     "Ghost",
+     "Hot Sauce",
+     "Sugar Honey Ice Tea"
+    ]
+   }
+  ]
+ }
+];
+  var HUES = { aespa: 255, h2h: 335, lsf: 200, bm: 12 };
+  var ALL_SONGS = [];
+  GROUPS.forEach(function (g) {
+    g.albums.forEach(function (a) {
+      a.songs.forEach(function (s, i) {
+        var artists = [g.name];
+        var m = a.key === "synk" ? s.match(/\(([^)]+)\)\s*$/) : null;
+        if (m) artists = m[1].split("&").map(function (x) { return x.trim(); });
+        ALL_SONGS.push({ id: g.key + ":" + a.key + ":" + i, albumId: g.key + ":" + a.key, name: s,
+          group: g.name, album: a.name, label: g.name + " · " + a.name, hue: HUES[g.key] || 260,
+          artists: artists, solo: !!m });
+      });
+    });
+  });
+
+  var $ = function (id) { return document.getElementById(id); };
+  function store(key, val) {
+    try {
+      if (val === undefined) return JSON.parse(localStorage.getItem(key) || "null");
+      if (val === null) localStorage.removeItem(key); else localStorage.setItem(key, JSON.stringify(val));
+    } catch (e) { return null; }
+  }
+  var STORE_KEY = "kpop-sorter-v2", META_KEY = "kpop-sorter-meta-v1", VOL_KEY = "kpop-sorter-vol";
+
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      var t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function shuffle(arr, seed) {
+    var rnd = mulberry32(seed), a = arr.slice();
+    for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(rnd() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; }
+    return a;
+  }
+
+  // ---------- Sorting state ----------
+  var state = null, pool = [];
+  function buildPool() {
+    var set = {};
+    state.songs.forEach(function (id) { set[id] = true; });
+    pool = shuffle(ALL_SONGS.filter(function (s) { return set[s.id]; }), state.seed);
+  }
+  function run() {
+    var idx = 0, ties = {};
+    function cmp(a, b) {
+      if (idx >= state.answers.length) throw { pair: [a, b] };
+      var ans = state.answers[idx++];
+      if (ans === 2) { ties[a.id + "|" + b.id] = true; ties[b.id + "|" + a.id] = true; }
+      return ans === 1 ? 1 : -1;
+    }
+    function merge(l, r) {
+      var out = [], i = 0, j = 0;
+      while (i < l.length && j < r.length) { if (cmp(l[i], r[j]) <= 0) out.push(l[i++]); else out.push(r[j++]); }
+      while (i < l.length) out.push(l[i++]);
+      while (j < r.length) out.push(r[j++]);
+      return out;
+    }
+    function ms(a) { if (a.length <= 1) return a; var m = Math.ceil(a.length / 2); return merge(ms(a.slice(0, m)), ms(a.slice(m))); }
+    try { return { done: true, result: ms(pool), ties: ties }; }
+    catch (e) { if (e && e.pair) return { done: false, pair: e.pair }; throw e; }
+  }
+  function maxComparisons(n) {
+    if (n < 2) return 0;
+    var k = Math.ceil(Math.log2(n));
+    return n * k - Math.pow(2, k) + 1;
+  }
+
+  // ---------- Song lookup (iTunes Search API: album art + 30s preview) ----------
+  var META = store(META_KEY) || {};      // songId -> { art, prev } | { none: 1 }
+  var ALBUM_ART = {};                     // albumId -> art url
+  Object.keys(META).forEach(function (id) {
+    var s = META[id]; if (s && s.art) ALBUM_ART[id.split(":").slice(0, 2).join(":")] = ALBUM_ART[id.split(":").slice(0, 2).join(":")] || s.art;
+  });
+  var pending = {};
+  function saveMeta() { store(META_KEY, META); }
+  function coreTitle(n) { return n.replace(/\s*\([^)]*\)/g, "").replace(/\s*\[[^\]]*\]/g, "").trim(); }
+  function norm(x) { return (x || "").toLowerCase().replace(/[^a-z0-9ㄱ-힝぀-ヿ一-鿿]/g, ""); }
+  function ytUrl(song) { return "https://www.youtube.com/results?search_query=" + encodeURIComponent(song.artists[0] + " " + coreTitle(song.name)); }
+  function jsonp(url) {
+    return new Promise(function (resolve, reject) {
+      var cb = "itcb" + Date.now() + Math.floor(Math.random() * 1e4);
+      var sc = document.createElement("script");
+      var timer = setTimeout(function () { done(); reject(new Error("timeout")); }, 8000);
+      function done() { clearTimeout(timer); try { delete window[cb]; } catch (e) { window[cb] = undefined; } if (sc.parentNode) sc.parentNode.removeChild(sc); }
+      window[cb] = function (d) { done(); resolve(d); };
+      sc.onerror = function () { done(); reject(new Error("error")); };
+      sc.src = url + "&callback=" + cb;
+      document.head.appendChild(sc);
+    });
+  }
+  function itunes(term) {
+    var url = "https://itunes.apple.com/search?media=music&entity=song&limit=15&term=" + encodeURIComponent(term);
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .catch(function () { return jsonp(url); });
+  }
+  function lookup(song) {
+    if (META[song.id]) return Promise.resolve(META[song.id]);
+    if (pending[song.id]) return pending[song.id];
+    var core = coreTitle(song.name);
+    pending[song.id] = itunes(song.artists[0] + " " + core).then(function (d) {
+      var t = norm(core), names = song.artists.map(norm).concat(song.solo ? [norm(song.group)] : []), hit = null;
+      (d.results || []).forEach(function (x) {
+        if (hit) return;
+        var artist = norm(x.artistName);
+        if (!names.some(function (n) { return n && artist.indexOf(n) >= 0; })) return;
+        var tn = norm(x.trackName);
+        if (tn.indexOf(t) >= 0 || (tn && t.indexOf(tn) >= 0)) hit = x;
+      });
+      var res = hit ? { art: (hit.artworkUrl100 || "").replace(/\/\d+x\d+bb\./, "/600x600bb."), prev: hit.previewUrl || "" } : { none: 1 };
+      META[song.id] = res;
+      if (res.art && !ALBUM_ART[song.albumId]) ALBUM_ART[song.albumId] = res.art;
+      saveMeta();
+      return res;
+    }).catch(function () { return { failed: 1 }; })
+      .then(function (r) { delete pending[song.id]; return r; });
+    return pending[song.id];
+  }
+
+  // Fill an .art box: real cover if known, album cover as stand-in, otherwise a drawn placeholder.
+  function paintArt(box, song, opts) {
+    box.style.setProperty("--h", song.hue);
+    box.querySelector(".ph b").textContent = coreTitle(song.name);
+    box.querySelector(".ph small").textContent = song.group;
+    var img = box.querySelector("img");
+    img.classList.remove("on");
+    img.onload = function () { img.classList.add("on"); };
+    img.onerror = function () { img.classList.remove("on"); img.removeAttribute("src"); };
+    box.dataset.song = song.id;
+    var known = META[song.id];
+    var url = (known && known.art) || ALBUM_ART[song.albumId];
+    if (url) img.src = url; else img.removeAttribute("src");
+    if (!known && opts && opts.fetch) {
+      lookup(song).then(function (r) {
+        if (box.dataset.song === song.id && r && r.art && img.getAttribute("src") !== r.art) img.src = r.art;
+      });
+    }
+  }
+  function artBox() {
+    var d = document.createElement("div"); d.className = "art";
+    d.innerHTML = '<div class="ph"><b></b><small></small></div><img alt="">';
+    return d;
+  }
+
+  // ---------- Audio ----------
+  var ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>';
+  var ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+  var ICON_VOL = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/></svg>';
+  var ICON_MUTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9z" fill="currentColor"/><path d="M17 9l5 6M22 9l-5 6"/></svg>';
+  var audio = null, playingSide = null, playToken = 0, current = { left: null, right: null };
+  var savedVol = store(VOL_KEY) || {};
+  var volume = typeof savedVol.v === "number" ? savedVol.v : 70, muted = !!savedVol.m;
+
+  function setStatus(t) { $("status").textContent = t; }
+  function applyVolume() {
+    $("volume").value = volume;
+    $("volText").textContent = muted ? "ปิด" : volume + "%";
+    $("muteBtn").innerHTML = muted || volume === 0 ? ICON_MUTE : ICON_VOL;
+    $("muteBtn").setAttribute("aria-label", muted ? "เปิดเสียง" : "ปิดเสียง");
+    if (audio) audio.volume = muted ? 0 : volume / 100;
+    store(VOL_KEY, { v: volume, m: muted });
+  }
+  function playButtons() {
+    ["left", "right"].forEach(function (side) {
+      var b = $(side === "left" ? "lp" : "rp");
+      b.innerHTML = playingSide === side ? ICON_PAUSE : ICON_PLAY;
+      b.classList.remove("busy");
+      $(side === "left" ? "cardL" : "cardR").classList.toggle("playing", playingSide === side);
+    });
+  }
+  function stopAudio() {
+    playToken++;
+    if (audio) { try { audio.pause(); } catch (e) {} audio = null; }
+    playingSide = null;
+    playButtons();
+  }
+  function togglePlay(side) {
+    var song = current[side];
+    if (!song) return;
+    if (playingSide === side) { stopAudio(); setStatus("หยุดแล้ว"); return; }
+    stopAudio();
+    var b = $(side === "left" ? "lp" : "rp");
+    b.classList.add("busy");
+    setStatus("กำลังหาตัวอย่าง " + song.name + " …");
+    var token = playToken;
+    lookup(song).then(function (r) {
+      if (token !== playToken) return;
+      b.classList.remove("busy");
+      if (r.failed) { setStatus("เชื่อมต่อร้านเพลงไม่ได้ ลองใหม่อีกครั้ง หรือกดลิงก์ YouTube ด้านล่าง"); return; }
+      if (!r.prev) { setStatus("ไม่พบตัวอย่างของ " + song.name + " ลองลิงก์ YouTube ด้านล่างแทน"); return; }
+      audio = new Audio(r.prev);
+      audio.volume = muted ? 0 : volume / 100;
+      playingSide = side;
+      audio.addEventListener("ended", function () { stopAudio(); setStatus("จบตัวอย่างแล้ว"); });
+      var p = audio.play();
+      playButtons();
+      setStatus("กำลังเล่น: " + song.name + " · " + song.group);
+      if (p && p.catch) p.catch(function () { stopAudio(); setStatus("เล่นเสียงไม่ได้ในเบราว์เซอร์นี้"); });
+      var other = side === "left" ? current.right : current.left;
+      if (other) paintArt($(side === "left" ? "artR" : "artL"), other, { fetch: true });
+    });
+  }
+
+  // ---------- Screens ----------
+  function show(id) {
+    ["start", "sorting", "result"].forEach(function (s) { $(s).hidden = s !== id; });
+    window.scrollTo(0, 0);
+  }
+  function qsa(root, sel) { return Array.prototype.slice.call(root.querySelectorAll(sel)); }
+  function songBoxes() { return qsa($("tree"), "input.sc"); }
+  function syncBox(box) {
+    var det = box.closest("details"), boxes = qsa(det, "input.sc");
+    var on = boxes.filter(function (c) { return c.checked; }).length;
+    box.checked = boxes.length > 0 && on === boxes.length;
+    box.indeterminate = on > 0 && on < boxes.length;
+    det.querySelector(".count").textContent = on + "/" + boxes.length;
+  }
+  function syncAll() { qsa($("tree"), "input.ac").forEach(syncBox); qsa($("tree"), "input.gc").forEach(syncBox); }
+
+  function renderTree() {
+    var tree = $("tree"); tree.innerHTML = "";
+    GROUPS.forEach(function (g) {
+      var gdet = document.createElement("details"); gdet.className = "grp";
+      var gsum = document.createElement("summary");
+      var gcb = document.createElement("input"); gcb.type = "checkbox"; gcb.className = "gc"; gcb.id = "g-" + g.key;
+      var dot = document.createElement("span"); dot.className = "dot"; dot.style.setProperty("--h", HUES[g.key] || 260);
+      var gnm = document.createElement("span"); gnm.className = "nm"; gnm.textContent = g.name;
+      var gcnt = document.createElement("span"); gcnt.className = "count";
+      gsum.appendChild(gcb); gsum.appendChild(dot); gsum.appendChild(gnm); gsum.appendChild(gcnt);
+      var albs = document.createElement("div"); albs.className = "albs";
+      g.albums.forEach(function (a) {
+        var det = document.createElement("details"); det.className = "alb";
+        var sum = document.createElement("summary");
+        var acb = document.createElement("input"); acb.type = "checkbox"; acb.className = "ac"; acb.id = "a-" + g.key + "-" + a.key;
+        var nm = document.createElement("span"); nm.className = "nm"; nm.textContent = a.name;
+        var cnt = document.createElement("span"); cnt.className = "count";
+        sum.appendChild(acb); sum.appendChild(nm); sum.appendChild(cnt);
+        var inner = document.createElement("div"); inner.className = "songs";
+        a.songs.forEach(function (name, i) {
+          var label = document.createElement("label");
+          var cb = document.createElement("input"); cb.type = "checkbox"; cb.className = "sc";
+          cb.value = g.key + ":" + a.key + ":" + i; cb.id = "s-" + g.key + "-" + a.key + "-" + i;
+          cb.checked = g.key === "aespa";
+          cb.addEventListener("change", function () { syncBox(acb); syncBox(gcb); updateTotal(); });
+          var t = document.createElement("span"); t.textContent = name;
+          label.appendChild(cb); label.appendChild(t); inner.appendChild(label);
+        });
+        acb.addEventListener("click", function (e) { e.stopPropagation(); });
+        acb.addEventListener("change", function () {
+          qsa(inner, "input.sc").forEach(function (c) { c.checked = acb.checked; });
+          syncBox(acb); syncBox(gcb); updateTotal();
+        });
+        det.appendChild(sum); det.appendChild(inner); albs.appendChild(det);
+      });
+      gcb.addEventListener("click", function (e) { e.stopPropagation(); });
+      gcb.addEventListener("change", function () {
+        qsa(gdet, "input.sc").forEach(function (c) { c.checked = gcb.checked; });
+        qsa(gdet, "input.ac").forEach(syncBox); syncBox(gcb); updateTotal();
+      });
+      gdet.appendChild(gsum); gdet.appendChild(albs); tree.appendChild(gdet);
+    });
+    syncAll(); updateTotal();
+  }
+  function selectedSongs() { return songBoxes().filter(function (c) { return c.checked; }).map(function (c) { return c.value; }); }
+  function setAll(v) { songBoxes().forEach(function (c) { c.checked = v; }); syncAll(); updateTotal(); }
+  function updateTotal() {
+    var n = selectedSongs().length;
+    $("totalNote").textContent = n + " เพลง · เลือกไม่เกิน ~" + maxComparisons(n) + " ครั้ง";
+    $("startBtn").disabled = n < 2;
+  }
+
+  function step() {
+    var r = run();
+    if (r.done) { showResult(r); return; }
+    show("sorting");
+    var a = r.pair[0], b = r.pair[1];
+    stopAudio();
+    current.left = a; current.right = b;
+    $("lt").textContent = a.name; $("la").textContent = a.label;
+    $("rt").textContent = b.name; $("ra").textContent = b.label;
+    paintArt($("artL"), a, { fetch: true });
+    paintArt($("artR"), b, { fetch: true });
+    $("ly").href = ytUrl(a); $("ry").href = ytUrl(b);
+    var max = Math.max(1, maxComparisons(pool.length));
+    var pct = Math.min(99, Math.floor(state.answers.length * 100 / max));
+    $("bar").style.width = pct + "%";
+    $("pcount").textContent = "รอบที่ " + (state.answers.length + 1);
+    $("ppct").textContent = "~" + pct + "% · " + pool.length + " เพลง";
+    $("undo").disabled = state.answers.length === 0;
+    setStatus("กด ▶ บนปกเพื่อฟังตัวอย่าง 30 วินาที");
+    store(STORE_KEY, state);
+  }
+  function answer(v) { if (!state) return; state.answers.push(v); step(); }
+
+  function showResult(r) {
+    stopAudio();
+    show("result");
+    var groups = {};
+    pool.forEach(function (s) { groups[s.group] = true; });
+    var multi = Object.keys(groups).length > 1;
+    var ranks = [], rank = 1, tied = 1;
+    r.result.forEach(function (s, i) {
+      ranks.push(rank);
+      var next = r.result[i + 1];
+      if (next) { if (r.ties[s.id + "|" + next.id]) tied++; else { rank += tied; tied = 1; } }
+    });
+
+    var pod = $("podium"); pod.innerHTML = "";
+    r.result.slice(0, 3).forEach(function (s, i) {
+      var d = document.createElement("div"); d.className = "pod" + (i === 0 ? " first" : "");
+      var rk = document.createElement("div"); rk.className = "rk"; rk.textContent = "#" + ranks[i];
+      var art = artBox(); paintArt(art, s, { fetch: true });
+      var t = document.createElement("div"); t.className = "t"; t.textContent = s.name;
+      var al = document.createElement("div"); al.className = "a"; al.textContent = s.label;
+      d.appendChild(rk); d.appendChild(art); d.appendChild(t); d.appendChild(al);
+      pod.appendChild(d);
+    });
+
+    var list = $("rankList"); list.innerHTML = "";
+    var lines = [];
+    r.result.forEach(function (s, i) {
+      var li = document.createElement("li");
+      var n = document.createElement("span"); n.className = "n"; n.textContent = ranks[i];
+      var art = artBox(); paintArt(art, s, { fetch: false });
+      var box = document.createElement("div"); box.style.minWidth = "0";
+      var t = document.createElement("div"); t.className = "t"; t.textContent = s.name;
+      var al = document.createElement("div"); al.className = "a"; al.textContent = s.label;
+      box.appendChild(t); box.appendChild(al);
+      li.appendChild(n); li.appendChild(art); li.appendChild(box);
+      list.appendChild(li);
+      lines.push(ranks[i] + ". " + s.name + (multi ? " – " + s.group : ""));
+    });
+    $("txt").value = "อันดับเพลงของฉัน\n" + lines.join("\n");
+    $("copyNote").textContent = "อยากได้เป็นรูป แคปหน้าจอส่วนอันดับได้เลย";
+    store(STORE_KEY, state);
+  }
+
+  function startNew() {
+    var ids = selectedSongs();
+    if (ids.length < 2) return;
+    state = { seed: (Date.now() % 2147483647) || 1, songs: ids, answers: [] };
+    buildPool(); step();
+  }
+  function reset() { stopAudio(); store(STORE_KEY, null); state = null; checkResume(); show("start"); }
+  function checkResume() {
+    var saved = store(STORE_KEY);
+    var ok = saved && saved.songs && saved.answers && saved.seed;
+    $("resumeBtn").hidden = !ok;
+    if (ok) $("resumeBtn").textContent = "ทำต่อจากที่ค้างไว้ (" + saved.answers.length + " รอบ)";
+  }
+
+  // ---------- Events ----------
+  $("allBtn").addEventListener("click", function () { setAll(true); });
+  $("noneBtn").addEventListener("click", function () { setAll(false); });
+  $("startBtn").addEventListener("click", startNew);
+  $("resumeBtn").addEventListener("click", function () {
+    var saved = store(STORE_KEY); if (!saved) return;
+    state = saved; buildPool();
+    if (pool.length < 2) { reset(); return; }
+    step();
+  });
+  $("left").addEventListener("click", function () { answer(0); });
+  $("right").addEventListener("click", function () { answer(1); });
+  $("lp").addEventListener("click", function () { togglePlay("left"); });
+  $("rp").addEventListener("click", function () { togglePlay("right"); });
+  $("tie").addEventListener("click", function () { answer(2); });
+  $("undo").addEventListener("click", function () { if (state && state.answers.length) { state.answers.pop(); step(); } });
+  $("saveBtn").addEventListener("click", function () {
+    store(STORE_KEY, state);
+    $("saveBtn").textContent = "บันทึกแล้ว";
+    setTimeout(function () { $("saveBtn").textContent = "บันทึกไว้ก่อน"; }, 1400);
+  });
+  var quitArmed = null;
+  $("quit").addEventListener("click", function () {
+    if (quitArmed) { clearTimeout(quitArmed); quitArmed = null; $("quit").textContent = "เริ่มใหม่"; reset(); return; }
+    $("quit").textContent = "กดอีกครั้งเพื่อยืนยัน";
+    quitArmed = setTimeout(function () { quitArmed = null; $("quit").textContent = "เริ่มใหม่"; }, 3000);
+  });
+  $("again").addEventListener("click", reset);
+  $("copyBtn").addEventListener("click", function () {
+    var ta = $("txt");
+    function fallback() {
+      try { ta.focus(); ta.select(); var ok = document.execCommand("copy"); $("copyNote").textContent = ok ? "คัดลอกแล้ว" : "กดค้างที่ข้อความแล้วเลือกคัดลอกเอง"; }
+      catch (e) { $("copyNote").textContent = "กดค้างที่ข้อความแล้วเลือกคัดลอกเอง"; }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(function () { $("copyNote").textContent = "คัดลอกแล้ว"; }, fallback);
+    } else fallback();
+  });
+  $("volume").addEventListener("input", function (e) { volume = Number(e.target.value); muted = false; applyVolume(); });
+  $("muteBtn").addEventListener("click", function () {
+    if (volume === 0) { volume = 70; muted = false; } else muted = !muted;
+    applyVolume();
+  });
+  document.addEventListener("keydown", function (e) {
+    if ($("sorting").hidden || e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+    if (e.key === "ArrowLeft") { answer(0); e.preventDefault(); }
+    else if (e.key === "ArrowRight") { answer(1); e.preventDefault(); }
+    else if (e.key === "ArrowUp") { answer(2); e.preventDefault(); }
+    else if (e.key === "ArrowDown") { $("undo").click(); e.preventDefault(); }
+  });
+
+  applyVolume();
+  playButtons();
+  renderTree();
+  checkResume();
+})();
+</script>
+
+</body>
+</html>
